@@ -4,28 +4,17 @@ use global_hotkey::{
     GlobalHotKeyEvent, GlobalHotKeyManager, HotKeyState,
 };
 
-use std::{
-    sync::{mpsc, Arc, Mutex},
-    thread,
-    time::Duration,
-};
+use std::{sync::mpsc, thread, time::Duration};
 use tokio::runtime::Runtime;
 use tray_item::{IconSource, TrayItem};
 use winit::event_loop::{ControlFlow, EventLoopBuilder};
 mod clipboard_ops;
 use clipboard_ops::{get_clipboard_content, set_clipboard_content};
 mod api;
-use api::{context_api_call, simple_api_call};
+use api::{context_api_call, image_api_call, simple_api_call};
 mod keyboard;
 
-#[derive(Debug)]
-enum Mode {
-    LMStudio,
-    OpenAI,
-}
-
 enum Message {
-    ChangeMode,
     Quit,
 }
 
@@ -59,23 +48,24 @@ async fn handle_highlighted_text_with_context() -> Result<(), Box<dyn std::error
     Ok(())
 }
 
-static CURRENT_MODE: once_cell::sync::Lazy<Arc<Mutex<Mode>>> =
-    once_cell::sync::Lazy::new(|| Arc::new(Mutex::new(Mode::LMStudio)));
+async fn handle_highlighted_text_with_image() -> Result<(), Box<dyn std::error::Error>> {
+    let image_path = get_clipboard_content()?;
+
+    let mut enigo = Enigo::new();
+    enigo.key_sequence_parse("{CTRL}c");
+
+    thread::sleep(Duration::from_secs(1));
+    let command = get_clipboard_content()?;
+    image_api_call(&command, &image_path).await?;
+    set_clipboard_content(&image_path)?;
+
+    Ok(())
+}
 
 fn main() {
     let mut tray = TrayItem::new("PeachAI", IconSource::Resource("peach_icon")).unwrap();
 
     let (tx, rx) = mpsc::channel();
-    let mode_label = format!("Current Mode: {:?}", *CURRENT_MODE.lock().unwrap());
-    tray.add_label(&mode_label).unwrap();
-
-    // Mode menu
-    let mode_tx = tx.clone();
-
-    tray.add_menu_item("Toggle Mode", move || {
-        mode_tx.send(Message::ChangeMode).unwrap();
-    })
-    .unwrap();
 
     // Quit
     let quit_tx = tx.clone();
@@ -85,21 +75,14 @@ fn main() {
     .unwrap();
 
     thread::spawn(move || {
-        for msg in rx {
-            match msg {
-                Message::Quit => {
-                    println!("Quit action triggered");
-                    std::process::exit(0);
-                }
-                Message::ChangeMode => {
-                    let mut mode = CURRENT_MODE.lock().unwrap();
-                    *mode = match *mode {
-                        Mode::LMStudio => Mode::OpenAI,
-                        Mode::OpenAI => Mode::LMStudio,
-                    };
-                    println!("Mode changed to: {:?}", *mode);
-                    // current mode label
-                }
+        match rx.recv() {
+            Ok(Message::Quit) => {
+                println!("Quit action triggered");
+                std::process::exit(0);
+            }
+            Err(e) => {
+                println!("Error receiving message: {}", e);
+                // Handle error or ignore
             }
         }
     });
@@ -113,9 +96,11 @@ fn main() {
     // Define your hotkeys here
     let hotkey = HotKey::new(Some(Modifiers::CONTROL | Modifiers::SHIFT), Code::Digit9);
     let context_hotkey = HotKey::new(Some(Modifiers::CONTROL | Modifiers::SHIFT), Code::Digit8);
+    let image_hotkey = HotKey::new(Some(Modifiers::CONTROL | Modifiers::SHIFT), Code::Digit7);
 
     hotkeys_manager.register(hotkey).unwrap();
     hotkeys_manager.register(context_hotkey).unwrap();
+    hotkeys_manager.register(image_hotkey).unwrap();
 
     let global_hotkey_channel = GlobalHotKeyEvent::receiver();
 
@@ -141,7 +126,13 @@ fn main() {
                             handle_highlighted_text_with_context()
                                 .await
                                 .expect("Failed to make API call");
-                            // Placeholder
+                        });
+                    }
+                    _ if event.id == image_hotkey.id() && event.state == HotKeyState::Pressed => {
+                        rt.spawn(async {
+                            handle_highlighted_text_with_image()
+                                .await
+                                .expect("Failed to make API call");
                         });
                     }
                     _ => {} // Default case
