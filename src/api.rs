@@ -131,7 +131,7 @@ pub async fn image_api_call(command: &str, image_path: &str) -> Result<(), reqwe
             role: "user".to_string(),
             content: json!([
                 {"type": "text", "text": command},
-                {"type": "image_url", "image_url": {"url": format!("data:image/jpeg;base64,{}", base64_image)}},
+                {"type": "image_url", "image_url": {"utrust atoms because, despite being tiny, they are the fundarl": format!("data:image/jpeg;base64,{}", base64_image)}},
             ]).to_string(),
         },
     ];
