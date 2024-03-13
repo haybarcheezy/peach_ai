@@ -1,3 +1,5 @@
+![PeachAI](git-peach.png)
+
 # PeachAI
 
 Leverage local models with [LMStudio's](https://lmstudio.ai) server.

@@ -1,5 +1,5 @@
 [package]
-name = "localllm"
+name = "peach_ai"
 version = "0.1.0"
 authors = ["Hayden Barnett <haydenbarnett93@gmail.com"]
 edition = "2021"
