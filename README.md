@@ -42,3 +42,6 @@ To use the vision capabilities of [LMStudio](https://lmstudio.ai), you will need
 
 ## Installation
 - Cargo run
+
+## Medium Article
+[PeachAI: Bridging Local Models and LMStudio's Power](https://medium.com/@haydenbarnett93/peachai-briding-local-models-and-lmstudios-power-257ade0ec067)
